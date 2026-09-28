@@ -1,0 +1,44 @@
+{
+  "name": "customer_profiles",
+  "description": "Customer profiles of a European subscription streaming service, with a churn-risk label for ML.",
+  "context": "Customers are adults across the EU and UK. Plans: basic (1 screen, ads), standard (2 screens), premium (4 screens, 4K), family (up to 6 profiles). Engagement (watch hours) drives churn: customers with low recent watch hours, failed payments or recent support complaints are high risk; long-tenure family/premium customers are usually low risk. Interests shape what they watch. Names and addresses must fit the country.",
+  "count": 1000,
+  "batch_size": 15,
+  "fields": [
+    {"name": "customer_id", "type": "uuid", "generator": "uuid"},
+    {"name": "first_name", "type": "string"},
+    {"name": "last_name", "type": "string"},
+    {"name": "email", "type": "email", "unique": true, "description": "Personal email derived from the name, on a plausible fictional or common webmail domain."},
+    {"name": "age", "type": "integer", "min": 18, "max": 90, "distribution": {"type": "normal", "mean": 41, "std": 14}},
+    {"name": "address", "type": "object", "properties": [
+      {"name": "street", "type": "string"},
+      {"name": "city", "type": "string"},
+      {"name": "postal_code", "type": "string"},
+      {"name": "country", "type": "enum", "values": ["DE", "FR", "UK", "IT", "ES", "NL", "PL", "RO", "SE"]}
+    ]},
+    {"name": "phone", "type": "string", "null_rate": 0.25, "description": "International format for the country."},
+    {"name": "signup_date", "type": "date", "min": "2019-01-01", "max": "2025-11-30", "distribution": "uniform"},
+    {"name": "plan", "type": "enum", "values": ["basic", "standard", "premium", "family"], "weights": [0.3, 0.35, 0.2, 0.15]},
+    {"name": "monthly_watch_hours", "type": "number", "min": 0, "max": 300, "decimals": 1,
+     "distribution": {"type": "lognormal", "median": 28, "sigma": 0.8}},
+    {"name": "interests", "type": "array", "min_items": 1, "max_items": 4,
+     "items": {"type": "enum", "values": ["drama", "comedy", "documentary", "sci_fi", "crime", "kids", "sports", "reality", "anime", "romance"]}},
+    {"name": "failed_payments_90d", "type": "integer", "min": 0, "max": 5},
+    {"name": "support_tickets_90d", "type": "integer", "min": 0, "max": 10},
+    {"name": "marketing_opt_in", "type": "boolean"},
+    {"name": "churn_risk", "type": "enum", "values": ["low", "medium", "high"], "weights": [0.55, 0.28, 0.17],
+     "description": "Label: must be justified by watch hours, payments, tickets, plan and tenure."},
+    {"name": "account_notes", "type": "text", "nullable": true, "max_length": 400,
+     "description": "Short internal CRM note, or null."}
+  ],
+  "rules": [
+    "The address (street, city, postal code format) and phone prefix match the country.",
+    "high churn_risk records show clear warning signs (low watch hours, failed payments or recent tickets); low churn_risk records do not.",
+    "kids interest is common for family plans and rare for customers under 25 without a family plan."
+  ],
+  "checks": [
+    "churn_risk != 'low' or failed_payments_90d <= 1",
+    "len(set(interests)) == len(interests)"
+  ],
+  "diversity": {"scenarios": 40, "edge_case_ratio": 0.08, "avoid_repeats": ["last_name"]}
+}

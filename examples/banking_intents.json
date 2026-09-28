@@ -1,0 +1,116 @@
+{
+  "name": "banking_intents",
+  "description": "Customer messages sent to a retail bank's chat assistant, each labelled with the customer's primary intent. Used to train and evaluate an intent classifier.\n",
+  "context": "Customers write on mobile, often tersely, sometimes emotionally, with typos, slang, and missing\npunctuation. Many messages mention amounts, merchants, dates or card types. Some customers\nwrite long, rambling messages with backstory; others send three words. Non-native English\nspeakers are common. Messages never contain real card numbers; if a number appears it is\nmasked (e.g. \"card ending 4417\").\n",
+  "count": 1000,
+  "batch_size": 20,
+  "model": "claude-sonnet-5-5",
+  "seed": 7,
+  "fields": [
+    {
+      "name": "message_id",
+      "type": "string",
+      "generator": "sequence",
+      "format": "msg-{:05d}"
+    },
+    {
+      "name": "text",
+      "type": "text",
+      "description": "The customer's message, exactly as they typed it.",
+      "min_length": 3,
+      "max_length": 600
+    },
+    {
+      "name": "intent",
+      "type": "enum",
+      "description": "The customer's primary intent (the label).",
+      "values": [
+        "card_lost_or_stolen",
+        "dispute_transaction",
+        "check_balance",
+        "transfer_money",
+        "loan_inquiry",
+        "update_personal_details",
+        "fees_and_charges",
+        "fraud_alert",
+        "other"
+      ],
+      "weights": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "secondary_intent",
+      "type": "enum",
+      "description": "A second intent if the message clearly contains one, else null.",
+      "values": [
+        "card_lost_or_stolen",
+        "dispute_transaction",
+        "check_balance",
+        "transfer_money",
+        "loan_inquiry",
+        "update_personal_details",
+        "fees_and_charges",
+        "fraud_alert",
+        "other"
+      ],
+      "nullable": true
+    },
+    {
+      "name": "sentiment",
+      "type": "enum",
+      "values": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "description": "Tone of the message."
+    },
+    {
+      "name": "urgency",
+      "type": "integer",
+      "min": 1,
+      "max": 5,
+      "description": "1 = casual question, 5 = emergency."
+    },
+    {
+      "name": "channel",
+      "type": "enum",
+      "values": [
+        "app_chat",
+        "web_chat",
+        "sms"
+      ],
+      "weights": {
+        "app_chat": 0.6,
+        "web_chat": 0.3,
+        "sms": 0.1
+      }
+    }
+  ],
+  "rules": [
+    "The text must express the labelled intent clearly enough that a careful human annotator agrees with it, except in edge-case slots, where it may be ambiguous but the label must still be the best choice.",
+    "secondary_intent must differ from intent.",
+    "fraud_alert and card_lost_or_stolen messages usually have urgency 4-5.",
+    "Do not mention the intent label or category names verbatim in the text."
+  ],
+  "checks": [
+    "secondary_intent is None or secondary_intent != intent"
+  ],
+  "diversity": {
+    "scenarios": 60,
+    "scenario_guidance": "Vary customer demographics, life situations (travel abroad, new job, small business owner, student, retiree), emotional states, message lengths and writing styles.\n",
+    "edge_case_ratio": 0.15,
+    "avoid_repeats": [
+      "text"
+    ]
+  }
+}

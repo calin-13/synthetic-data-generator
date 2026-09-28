@@ -1,0 +1,7 @@
+anthropic>=1.0
+pydantic>=2.6
+pandas>=2.0
+pyarrow>=14.0
+click>=8.1
+pyyaml>=6.0
+pytest>=8.0

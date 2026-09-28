@@ -1,0 +1,315 @@
+{
+  "settings": {
+    "model": "claude-sonnet-5-5",
+    "concurrency": 8,
+    "seed": 42
+  },
+  "tables": [
+    {
+      "name": "customers",
+      "description": "Customers of \"Fernhouse\", a fictional online store selling home goods, kitchenware and plants.",
+      "context": "Customers are mostly in the EU and UK. Loyalty tiers: bronze (default), silver (>3 orders),\ngold (>10 orders or >EUR 1,500 lifetime). Marketing opt-in is roughly 55%.\n",
+      "count": 200,
+      "batch_size": 20,
+      "fields": [
+        {
+          "name": "customer_id",
+          "type": "string",
+          "generator": "sequence",
+          "format": "C{:05d}"
+        },
+        {
+          "name": "full_name",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "unique": true
+        },
+        {
+          "name": "country",
+          "type": "enum",
+          "values": [
+            "DE",
+            "FR",
+            "NL",
+            "ES",
+            "IT",
+            "UK",
+            "IE",
+            "SE",
+            "PL"
+          ],
+          "weights": [
+            0.22,
+            0.16,
+            0.1,
+            0.1,
+            0.1,
+            0.16,
+            0.04,
+            0.06,
+            0.06
+          ]
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "description": "A real city in the customer's country."
+        },
+        {
+          "name": "signup_date",
+          "type": "date",
+          "min": "2021-01-01",
+          "max": "2025-10-31",
+          "distribution": "uniform"
+        },
+        {
+          "name": "loyalty_tier",
+          "type": "enum",
+          "values": [
+            "bronze",
+            "silver",
+            "gold"
+          ],
+          "weights": [
+            0.6,
+            0.3,
+            0.1
+          ]
+        },
+        {
+          "name": "marketing_opt_in",
+          "type": "boolean"
+        },
+        {
+          "name": "persona",
+          "type": "string",
+          "max_length": 160,
+          "description": "One-line shopping persona (interests, household, budget); used for coherence across tables."
+        }
+      ],
+      "rules": [
+        "city must be in country; email local-part plausibly derived from the name."
+      ],
+      "diversity": {
+        "scenarios": 25
+      }
+    },
+    {
+      "name": "orders",
+      "description": "Orders placed on Fernhouse.",
+      "context": "Average basket EUR 70, long tail up to EUR 1,200. Shipping is free over EUR 60, else EUR 4.90.\nStatus mix reflects a live store: most orders delivered, a few in transit, some returned/cancelled.\n",
+      "count": 600,
+      "batch_size": 15,
+      "fields": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "generator": "sequence",
+          "format": "ORD-{:07d}"
+        },
+        {
+          "name": "customer_id",
+          "ref": "customers.customer_id",
+          "ref_context": [
+            "country",
+            "persona",
+            "loyalty_tier",
+            "signup_date"
+          ],
+          "ref_skew": 1.1
+        },
+        {
+          "name": "order_date",
+          "type": "date",
+          "min": "2024-01-01",
+          "max": "2025-10-31",
+          "distribution": "uniform"
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "min_items": 1,
+          "max_items": 6,
+          "items": {
+            "type": "object",
+            "properties": [
+              {
+                "name": "product_name",
+                "type": "string"
+              },
+              {
+                "name": "category",
+                "type": "enum",
+                "values": [
+                  "kitchen",
+                  "tableware",
+                  "textiles",
+                  "decor",
+                  "plants",
+                  "garden",
+                  "storage"
+                ]
+              },
+              {
+                "name": "quantity",
+                "type": "integer",
+                "min": 1,
+                "max": 8
+              },
+              {
+                "name": "unit_price_eur",
+                "type": "number",
+                "min": 1,
+                "max": 900,
+                "decimals": 2
+              }
+            ]
+          }
+        },
+        {
+          "name": "shipping_eur",
+          "type": "number",
+          "min": 0,
+          "max": 30,
+          "decimals": 2
+        },
+        {
+          "name": "total_eur",
+          "type": "number",
+          "min": 1,
+          "max": 5000,
+          "decimals": 2,
+          "description": "Sum of items plus shipping."
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "delivered",
+            "in_transit",
+            "processing",
+            "returned",
+            "cancelled"
+          ],
+          "weights": [
+            0.72,
+            0.08,
+            0.05,
+            0.1,
+            0.05
+          ]
+        },
+        {
+          "name": "gift",
+          "type": "boolean"
+        }
+      ],
+      "rules": [
+        "Products fit the customer's persona and country (e.g. climate-appropriate plants).",
+        "order_date is on or after the customer's signup_date."
+      ],
+      "checks": [
+        "abs(sum(i['quantity'] * i['unit_price_eur'] for i in items) + shipping_eur - total_eur) <= 0.05",
+        "shipping_eur == 0 or total_eur - shipping_eur < 60",
+        "order_date >= date.fromisoformat(parent['customer_id']['signup_date'])"
+      ],
+      "diversity": {
+        "edge_case_ratio": 0.05
+      }
+    },
+    {
+      "name": "reviews",
+      "description": "Product reviews left after an order.",
+      "count": 300,
+      "batch_size": 15,
+      "fields": [
+        {
+          "name": "review_id",
+          "type": "uuid",
+          "generator": "uuid"
+        },
+        {
+          "name": "order_id",
+          "ref": "orders.order_id",
+          "ref_context": [
+            "items",
+            "status",
+            "gift",
+            "order_date"
+          ]
+        },
+        {
+          "name": "product_name",
+          "type": "string",
+          "description": "Must be one of the order's product names."
+        },
+        {
+          "name": "rating",
+          "type": "integer",
+          "min": 1,
+          "max": 5,
+          "distribution": {
+            "type": "normal",
+            "mean": 4.1,
+            "std": 1.1
+          }
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "max_length": 80
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "min_length": 20,
+          "max_length": 1200
+        },
+        {
+          "name": "language",
+          "type": "enum",
+          "values": [
+            "en",
+            "de",
+            "fr",
+            "nl",
+            "es",
+            "it",
+            "sv",
+            "pl"
+          ],
+          "weights": [
+            0.45,
+            0.15,
+            0.1,
+            0.07,
+            0.08,
+            0.07,
+            0.04,
+            0.04
+          ],
+          "description": "Language the review is written in."
+        },
+        {
+          "name": "verified_purchase",
+          "type": "boolean"
+        }
+      ],
+      "rules": [
+        "The review's sentiment matches the rating; returned orders skew negative.",
+        "Title and body are written in the stated language."
+      ],
+      "checks": [
+        "product_name in [i['product_name'] for i in parent['order_id']['items']]"
+      ],
+      "diversity": {
+        "avoid_repeats": [
+          "title"
+        ]
+      }
+    }
+  ]
+}

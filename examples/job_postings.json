@@ -1,0 +1,52 @@
+{
+  "name": "job_postings",
+  "description": "Job postings from a European tech job board. Each record is one open position.",
+  "context": "Postings come from startups, scale-ups and enterprises across Europe. Annual gross salaries (EUR) depend mainly on seniority, then on location (Zurich, London, Munich and Amsterdam pay more; Lisbon, Warsaw and Bucharest less) and on department (engineering and data pay above marketing and people). Required skills are concrete technologies and practices that match the title and seniority: juniors list fundamentals, seniors list architecture, mentoring and specific platforms. Remote roles are common in engineering and rare in sales. Descriptions read like real postings: company pitch, responsibilities, requirements, benefits; tone varies by company type.",
+  "count": 500,
+  "batch_size": 10,
+  "fields": [
+    {"name": "job_id", "type": "string", "generator": "sequence", "format": "JOB-{:06d}"},
+    {"name": "job_title", "type": "string", "description": "Job position title, specific rather than generic (e.g. 'Senior Backend Engineer, Payments').", "max_length": 90},
+    {"name": "company", "type": "string", "description": "Fictional company name."},
+    {"name": "department", "type": "enum",
+     "values": ["engineering", "data", "product", "design", "marketing", "sales", "operations", "finance", "people"],
+     "weights": [0.34, 0.14, 0.1, 0.06, 0.09, 0.1, 0.07, 0.05, 0.05]},
+    {"name": "seniority", "type": "enum", "values": ["intern", "junior", "mid", "senior", "lead", "principal"],
+     "weights": [0.05, 0.18, 0.3, 0.3, 0.12, 0.05]},
+    {"name": "employment_type", "type": "enum", "values": ["full_time", "part_time", "contract", "internship"],
+     "description": "internship only for intern seniority."},
+    {"name": "location", "type": "object", "properties": [
+      {"name": "city", "type": "string"},
+      {"name": "country", "type": "enum", "values": ["DE", "UK", "NL", "FR", "ES", "PT", "PL", "RO", "CH", "SE", "IE"]},
+      {"name": "remote_policy", "type": "enum", "values": ["onsite", "hybrid", "remote"]}
+    ]},
+    {"name": "years_experience_min", "type": "integer", "min": 0, "max": 15, "description": "Minimum years of experience required."},
+    {"name": "salary", "type": "number", "min": 30000, "max": 200000, "decimals": 0,
+     "description": "Annual gross base salary in EUR (midpoint of the advertised band), consistent with seniority, location and department."},
+    {"name": "skills", "type": "array", "items": "string", "min_items": 3, "max_items": 8,
+     "description": "Required skills/technologies matching the title and seniority."},
+    {"name": "description", "type": "text", "min_length": 400, "max_length": 2500, "description": "The full posting text."},
+    {"name": "posted_date", "type": "date", "min": "2025-01-01", "max": "2025-12-31", "distribution": "uniform"},
+    {"name": "applicants", "type": "integer", "min": 0, "max": 3000,
+     "distribution": {"type": "lognormal", "median": 45, "sigma": 1.0}},
+    {"name": "visa_sponsorship", "type": "boolean"}
+  ],
+  "rules": [
+    "Salary bands by seniority (EUR): intern 30-40k, junior 35-55k, mid 50-80k, senior 70-115k, lead 90-150k, principal 120-200k; shift up ~25% for CH/UK and down ~30% for PL/RO/PT.",
+    "years_experience_min fits seniority: intern 0, junior 0-2, mid 2-5, senior 5-8, lead 7-12, principal 10+.",
+    "The city is a real city in the country; remote roles still name the company's home city.",
+    "The description mentions the title, the remote policy and several of the listed skills."
+  ],
+  "checks": [
+    "(employment_type == 'internship') == (seniority == 'intern')",
+    "salary >= {'intern': 30000, 'junior': 30000, 'mid': 40000, 'senior': 55000, 'lead': 70000, 'principal': 90000}[seniority]",
+    "years_experience_min <= {'intern': 0, 'junior': 2, 'mid': 5, 'senior': 9, 'lead': 12, 'principal': 15}[seniority]",
+    "len({s.lower() for s in skills}) == len(skills)"
+  ],
+  "diversity": {
+    "scenarios": 40,
+    "scenario_guidance": "Vary company type (seed startup, scale-up, bank, agency, public sector, NGO), industry, team situation (new team, rebuild, growth, backfill) and role focus.",
+    "edge_case_ratio": 0.05,
+    "avoid_repeats": ["company", "job_title"]
+  }
+}

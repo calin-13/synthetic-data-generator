@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+output/
+.synthgen/
+.idea/workspace.xml
+.idea/shelf/
+.idea/

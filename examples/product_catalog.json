@@ -1,0 +1,47 @@
+{
+  "name": "product_catalog",
+  "description": "Product catalog of an online outdoor & sports equipment retailer. Each record is one product with its variants.",
+  "context": "Brands are fictional. Prices follow a long tail: many accessories under EUR 30, core gear EUR 60-300, a few premium items (tents, bikes, GPS watches) up to several thousand. Dimensions and weights must be physically plausible for the product type (a tent packs to ~50x20x20 cm and 2-4 kg; a water bottle is under 1 kg). Materials are real (ripstop nylon, merino wool, 6061 aluminium, EVA foam). Ratings skew positive; new products have few or no reviews.",
+  "count": 300,
+  "batch_size": 8,
+  "fields": [
+    {"name": "sku", "type": "string", "generator": "sequence", "format": "SKU-{:06d}"},
+    {"name": "name", "type": "string", "max_length": 100, "description": "Product name including brand line and key attribute (e.g. 'Kestrel 2P Ultralight Tent')."},
+    {"name": "brand", "type": "string", "description": "Fictional brand name."},
+    {"name": "category", "type": "enum",
+     "values": ["camping", "hiking", "climbing", "cycling", "running", "water_sports", "winter_sports", "apparel", "accessories"],
+     "weights": [0.14, 0.14, 0.08, 0.1, 0.12, 0.07, 0.07, 0.16, 0.12]},
+    {"name": "description", "type": "text", "min_length": 150, "max_length": 1200, "description": "Marketing description with concrete specs and use cases."},
+    {"name": "price_eur", "type": "number", "min": 2, "max": 6000, "decimals": 2,
+     "distribution": {"type": "lognormal", "median": 55, "sigma": 1.0}},
+    {"name": "dimensions", "type": "object", "description": "Packed dimensions and weight.", "properties": [
+      {"name": "length_cm", "type": "number", "min": 1, "max": 250, "decimals": 1},
+      {"name": "width_cm", "type": "number", "min": 1, "max": 150, "decimals": 1},
+      {"name": "height_cm", "type": "number", "min": 0.5, "max": 150, "decimals": 1},
+      {"name": "weight_kg", "type": "number", "min": 0.01, "max": 40, "decimals": 2}
+    ]},
+    {"name": "materials", "type": "array", "items": "string", "min_items": 1, "max_items": 4},
+    {"name": "variants", "type": "array", "min_items": 1, "max_items": 6,
+     "description": "Purchasable variants (color/size combinations) with stock levels.",
+     "items": {"type": "object", "properties": [
+       {"name": "color", "type": "string"},
+       {"name": "size", "type": "string", "description": "Size label, or 'one size'."},
+       {"name": "stock", "type": "integer", "min": 0, "max": 500}
+     ]}},
+    {"name": "rating", "type": "number", "min": 1, "max": 5, "decimals": 1, "null_rate": 0.12,
+     "description": "Average rating; null when the product has no reviews."},
+    {"name": "review_count", "type": "integer", "min": 0, "max": 20000, "description": "0 when rating is null."},
+    {"name": "tags", "type": "array", "items": "string", "max_items": 6, "description": "Lowercase search tags."},
+    {"name": "launch_date", "type": "date", "min": "2019-01-01", "max": "2025-12-31", "distribution": "uniform"},
+    {"name": "is_active", "type": "boolean"}
+  ],
+  "rules": [
+    "Price, materials, dimensions and weight must be plausible for the specific product.",
+    "Apparel variants use sizes XS-XXL; footwear uses EU sizes; equipment usually 'one size' or model sizes."
+  ],
+  "checks": [
+    "(rating is None) == (review_count == 0)",
+    "len({(v['color'].lower(), v['size'].lower()) for v in variants}) == len(variants)"
+  ],
+  "diversity": {"scenarios": 30, "avoid_repeats": ["name", "brand"], "edge_case_ratio": 0.05}
+}

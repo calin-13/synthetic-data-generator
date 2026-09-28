@@ -1,0 +1,152 @@
+{
+  "name": "outpatient_encounters",
+  "description": "Synthetic adult primary-care outpatient encounters with a structured summary and a clinician note.",
+  "context": "Primary-care clinic in the US. Notes follow a SOAP structure (Subjective, Objective, Assessment,\nPlan), written in terse clinical shorthand with standard abbreviations (pt, hx, c/o, SOB, BP, f/u).\nVitals in the note must match the structured fields exactly. Diagnoses must be consistent with age,\nsex, symptoms and vitals; medications must be appropriate first-line choices with plausible doses.\nInclude realistic comorbidities for older patients (HTN, T2DM, hyperlipidemia, CKD).\nAll names, dates and identifiers are fictional.\n",
+  "count": 300,
+  "batch_size": 5,
+  "max_tokens": 20000,
+  "fields": [
+    {
+      "name": "encounter_id",
+      "type": "string",
+      "generator": "sequence",
+      "format": "ENC-{:06d}"
+    },
+    {
+      "name": "encounter_date",
+      "type": "date",
+      "min": "2024-01-01",
+      "max": "2025-12-31",
+      "distribution": "uniform"
+    },
+    {
+      "name": "age",
+      "type": "integer",
+      "min": 18,
+      "max": 95,
+      "distribution": {
+        "type": "normal",
+        "mean": 52,
+        "std": 18
+      }
+    },
+    {
+      "name": "sex",
+      "type": "enum",
+      "values": [
+        "female",
+        "male"
+      ],
+      "weights": [
+        0.54,
+        0.46
+      ]
+    },
+    {
+      "name": "visit_type",
+      "type": "enum",
+      "values": [
+        "acute",
+        "chronic_follow_up",
+        "preventive",
+        "medication_review"
+      ],
+      "weights": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ]
+    },
+    {
+      "name": "systolic_bp",
+      "type": "integer",
+      "min": 85,
+      "max": 200
+    },
+    {
+      "name": "diastolic_bp",
+      "type": "integer",
+      "min": 45,
+      "max": 120
+    },
+    {
+      "name": "heart_rate",
+      "type": "integer",
+      "min": 40,
+      "max": 150
+    },
+    {
+      "name": "temperature_c",
+      "type": "number",
+      "min": 35.0,
+      "max": 40.5,
+      "decimals": 1
+    },
+    {
+      "name": "chief_complaint",
+      "type": "string",
+      "max_length": 100
+    },
+    {
+      "name": "diagnoses",
+      "type": "array",
+      "min_items": 1,
+      "max_items": 4,
+      "items": {
+        "type": "object",
+        "properties": [
+          {
+            "name": "icd10",
+            "type": "string",
+            "pattern": "^[A-Z][0-9]{2}(\\.[0-9A-Z]{1,4})?$",
+            "description": "ICD-10-CM code."
+          },
+          {
+            "name": "description",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "medications_prescribed",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "max_items": 5,
+      "description": "New or changed prescriptions, e.g. 'lisinopril 10 mg PO daily'."
+    },
+    {
+      "name": "note",
+      "type": "text",
+      "min_length": 300,
+      "max_length": 3000,
+      "description": "The clinician's SOAP note."
+    },
+    {
+      "name": "follow_up_days",
+      "type": "integer",
+      "min": 0,
+      "max": 365,
+      "nullable": true,
+      "description": "null if no follow-up booked."
+    }
+  ],
+  "rules": [
+    "Vital signs in the note must match systolic_bp, diastolic_bp, heart_rate and temperature_c exactly.",
+    "Diagnoses must be supported by the note's findings; the first diagnosis is the primary one.",
+    "Preventive visits for patients under 40 rarely have more than one diagnosis.",
+    "systolic_bp is greater than diastolic_bp by at least 20."
+  ],
+  "checks": [
+    "systolic_bp - diastolic_bp >= 20",
+    "str(systolic_bp) in note and str(heart_rate) in note"
+  ],
+  "diversity": {
+    "scenarios": 50,
+    "scenario_guidance": "Span common primary-care presentations across organ systems, from URIs and back pain to chest pain work-ups, depression screening, diabetes management and pre-travel visits.\n",
+    "edge_case_ratio": 0.05
+  }
+}

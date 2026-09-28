@@ -1,0 +1,179 @@
+{
+  "name": "support_tickets",
+  "description": "Support tickets filed by customers of \"Taskline\", a fictional B2B project-management SaaS.",
+  "context": "Taskline has Free, Team and Enterprise plans. Enterprise customers have SSO, audit logs and a\n4-hour first-response SLA; Team has 24h; Free is best-effort. Common issues: SSO/SAML setup,\nJira/GitHub/Slack integrations, permission confusion, billing (seat counts, invoices, VAT),\ndata import from Asana/Trello, API rate limits, slow boards with >5k tasks, mobile sync bugs.\nAgents tag tickets and set priority; urgent is reserved for outages or data loss.\n",
+  "count": 500,
+  "batch_size": 10,
+  "fields": [
+    {
+      "name": "ticket_id",
+      "type": "uuid",
+      "generator": "uuid"
+    },
+    {
+      "name": "created_at",
+      "type": "datetime",
+      "min": "2025-01-01T00:00:00Z",
+      "max": "2025-12-31T23:59:59Z",
+      "distribution": "uniform"
+    },
+    {
+      "name": "plan",
+      "type": "enum",
+      "values": [
+        "free",
+        "team",
+        "enterprise"
+      ],
+      "weights": [
+        0.35,
+        0.45,
+        0.2
+      ]
+    },
+    {
+      "name": "priority",
+      "type": "enum",
+      "values": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "weights": [
+        0.35,
+        0.4,
+        0.2,
+        0.05
+      ]
+    },
+    {
+      "name": "status",
+      "type": "enum",
+      "values": [
+        "open",
+        "pending_customer",
+        "resolved",
+        "closed"
+      ],
+      "weights": [
+        0.15,
+        0.1,
+        0.35,
+        0.4
+      ]
+    },
+    {
+      "name": "customer",
+      "type": "object",
+      "properties": [
+        {
+          "name": "company",
+          "type": "string",
+          "description": "Fictional customer company name."
+        },
+        {
+          "name": "contact_name",
+          "type": "string"
+        },
+        {
+          "name": "contact_email",
+          "type": "email",
+          "description": "Contact's work email on the company's (fictional) domain."
+        },
+        {
+          "name": "seats",
+          "type": "integer",
+          "min": 1,
+          "max": 5000,
+          "description": "Paid seats; consistent with plan."
+        }
+      ]
+    },
+    {
+      "name": "subject",
+      "type": "string",
+      "max_length": 120,
+      "description": "Ticket subject line as written by the customer."
+    },
+    {
+      "name": "body",
+      "type": "text",
+      "min_length": 80,
+      "max_length": 2000,
+      "description": "The customer's initial message, with the concrete details an agent would need."
+    },
+    {
+      "name": "category",
+      "type": "enum",
+      "values": [
+        "sso_auth",
+        "integrations",
+        "permissions",
+        "billing",
+        "data_import",
+        "api",
+        "performance",
+        "mobile",
+        "other"
+      ]
+    },
+    {
+      "name": "tags",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "min_items": 1,
+      "max_items": 4,
+      "description": "Short lowercase agent tags in kebab-case."
+    },
+    {
+      "name": "first_response_minutes",
+      "type": "integer",
+      "min": 1,
+      "max": 4320,
+      "null_rate": 0.1,
+      "distribution": {
+        "type": "lognormal",
+        "median": 180,
+        "sigma": 1.1
+      }
+    },
+    {
+      "name": "resolution_hours",
+      "type": "number",
+      "min": 0.1,
+      "max": 720,
+      "decimals": 1,
+      "nullable": true,
+      "description": "Hours from creation to resolution; null unless status is resolved or closed."
+    },
+    {
+      "name": "csat",
+      "type": "integer",
+      "min": 1,
+      "max": 5,
+      "nullable": true,
+      "description": "Customer satisfaction score; only for resolved/closed tickets, and not always given."
+    }
+  ],
+  "rules": [
+    "Free-plan customers have 1-10 seats, Team 5-300, Enterprise 200+. SSO issues only occur on Enterprise.",
+    "resolution_hours and csat are null when status is open or pending_customer.",
+    "Urgent tickets describe an outage, data loss or a blocked team, and their body reads as urgent.",
+    "Tags must be consistent with the category and body."
+  ],
+  "checks": [
+    "status in ('resolved', 'closed') or (resolution_hours is None and csat is None)",
+    "category != 'sso_auth' or plan == 'enterprise'",
+    "len(set(tags)) == len(tags)"
+  ],
+  "diversity": {
+    "scenarios": 40,
+    "edge_case_ratio": 0.08,
+    "avoid_repeats": [
+      "subject"
+    ]
+  }
+}
